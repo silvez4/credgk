@@ -94,7 +94,7 @@
                 <v-text-field
                   v-model="qtdParcels"
                   label="Parcelas"
-                  type="numbers"
+                  type="number"
                   prepend-icon="mdi-cash"
                 />
               </v-col>
@@ -140,7 +140,7 @@
             color="green darken-1"
             text
             :disabled="fieldsHasNoData"
-            @click="addTansaction()"
+            @click="addTransaction()"
           >
             Adicionar
           </v-btn>
@@ -206,6 +206,8 @@
 </template>
 
 <script>
+import { saveCompra, saveDeposito } from '@/firebase/crud'
+
 export default {
   name: 'InspirePage',
   middleware: 'auth',
@@ -215,13 +217,13 @@ export default {
     typeTransaction: '',
     valorTransaction: '',
     dateTransaction: '',
-    qtdParcels: '',
+    qtdParcels: 1,
     valParcels: '',
     fieldsHasNoData: true,
     menu: false,
     datePickerVal: (new Date(Date.now() - (new Date()).getTimezoneOffset() * 60000)).toISOString().substr(0, 10),
     dialog: false,
-    newTansactions: [],
+    newTransactions: {},
     cards: [
       {
         "title": "Total em Conta",
@@ -289,6 +291,7 @@ export default {
 
   mounted() {
     this.checkDif()
+    this.dateTransaction = this.dataAtualFormatada()
   },
 
   watch: {
@@ -349,6 +352,10 @@ export default {
           },
         ]
       },
+     
+      currentUser(){
+        return this.$store.state.user
+      }
     },
 
   methods: {
@@ -359,7 +366,7 @@ export default {
       this.nameTransaction = ''
       this.typeTransaction = ''
       this.valorTransaction = ''
-      this.qtdParcels = ''
+      this.qtdParcels = 1
       this.valParcels = ''
       return
     },
@@ -370,6 +377,17 @@ export default {
         const [year, month, day] = date.split('-')
         return `${day}-${month}-${year}`
       },
+
+    dataAtualFormatada(){
+      var data = new Date(),
+          dia  = data.getDate().toString(),
+          diaF = (dia.length == 1) ? '0'+dia : dia,
+          mes  = (data.getMonth()+1).toString(), //+1 pois no getMonth Janeiro começa com zero.
+          mesF = (mes.length == 1) ? '0'+mes : mes,
+          anoF = data.getFullYear();
+      return diaF+"/"+mesF+"/"+anoF;
+    },
+
     parseMoney (money) {
         if (!money) return null
 
@@ -390,7 +408,6 @@ export default {
       },
 
     checkFields(){
-      console.log("av")
       if(this.nameTransaction != '' && this.typeTransaction != '' && this.dateTransaction != '' && this.valorTransaction != '' && this.qtdParcels != ''){
         this.fieldsHasNoData = false
       }
@@ -399,19 +416,32 @@ export default {
       }
     },
 
-    addTansaction() {
-      // if(this.nameTransaction == '' || this.typeTransaction == '' || this.dateTransaction == '' || this.valorTransaction == ''){
-      //   this.fieldsHasNoData = true
-      //   return
-      // }
-      this.newTansactions.push({
-        'nome': this.nameTransaction,
-        'tipo': this.typeTransaction,
-        'data': this.dateTransaction,
-        'parcelas': this.qtdParcels,
-        'valor': this.valorTransaction,
-        'valorParcels': this.valParcels
-      })
+    async addTransaction() {
+      let dateTime = new Date().toLocaleString("pt-BR")
+      
+      this.newTransactions = {
+          'nomeCompra': this.nameTransaction,
+          'tipoCompra': this.typeTransaction,
+          'dataCompra': this.dateTransaction,
+          'parcelasCompra': this.qtdParcels,
+          'valorCompra': this.valorTransaction,
+          'valorParcelasCompra': this.valParcels,
+          'criadoEm' : dateTime
+      }
+      // console.log(this.newTransactions)
+      await saveCompra(this.newTransactions, this.currentUser.email)
+      await saveDeposito(this.newTransactions, this.currentUser.email)
+      
+
+      // await setDoc(doc(db, "users", this.currentUser.email, 'compras', uuidv4()), this.newTransactions, { merge: true });
+
+      // const q = query(collection(db, "users", this.currentUser.email, ano));
+
+      // const querySnapshot = await getDocs(q);
+      // querySnapshot.forEach((doc) => {
+      //   // doc.data() is never undefined for query doc snapshots
+      //   console.log(doc.id, " => ", doc.data());
+      // });
     },
 
     filterOnlyLowerText (value, search, item) {
